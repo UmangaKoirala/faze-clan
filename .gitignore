@@ -42,3 +42,6 @@ next-env.d.ts
 
 # FaZe Draft: each laptop keeps its own drafted teams
 data/teams.json
+
+# Local backup files
+*.bak

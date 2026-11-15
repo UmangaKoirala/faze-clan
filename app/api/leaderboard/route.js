@@ -1,23 +1,60 @@
-import { connection } from 'next/server';
-import { readJson, readSnapshots } from '@/lib/data';
-import { teamPoints } from '@/lib/score';
+import { connection } from "next/server";
 
-export async function GET() {
-  await connection(); // read the JSON files on every request, not at build time
-  const creators = readJson('creators.json', []);
-  const byId = Object.fromEntries(creators.map((c) => [c.id, c]));
-  const snapshots = readSnapshots();
-  const teams = readJson('teams.json', []);
+import { readJson, readSnapshots } from "@/lib/data";
+import { teamPoints } from "@/lib/score";
+import {
+  userContext,
+  sharedTeams,
+  apiError,
+  json,
+} from "@/lib/shared-server";
 
-  const rows = teams
-    .map((t) => ({
-      scout: t.scout,
-      points: teamPoints(t, byId, snapshots),
-      picks: t.picks.map((id) => byId[id]?.name || 'Unknown'),
-      kingmaker: t.picks.some((id) => byId[id]?.signedByFaZe),
-    }))
-    .sort((a, b) => b.points - a.points)
-    .map((row, i) => ({ rank: i + 1, ...row }));
+export async function GET(request) {
+  await connection();
 
-  return Response.json(rows);
+  try {
+    const { db, user } = await userContext(request);
+
+    const teams = await sharedTeams(db);
+    const creators = readJson("creators.json", []);
+    const snapshots = readSnapshots();
+
+    const byId = Object.fromEntries(
+      creators.map((creator) => [creator.id, creator])
+    );
+
+    const rows = teams
+      .map((team) => ({
+        id: team.user_id,
+
+        scout:
+          team.profiles?.display_name || "Scout",
+
+        mine: team.user_id === user.id,
+
+        points: teamPoints(team, byId, snapshots),
+
+        picks: team.picks.map(
+          (id) =>
+            byId[id]?.name || "Creator no longer listed"
+        ),
+
+        kingmaker: team.picks.some(
+          (id) => byId[id]?.signedByFaZe
+        ),
+      }))
+      .sort(
+        (a, b) =>
+          b.points - a.points ||
+          a.id.localeCompare(b.id)
+      )
+      .map((row, index) => ({
+        ...row,
+        rank: index + 1,
+      }));
+
+    return json(rows);
+  } catch (error) {
+    return apiError(error);
+  }
 }

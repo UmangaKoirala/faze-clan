@@ -1,22 +1,50 @@
-import { connection } from 'next/server';
-import { readJson, readSnapshots } from '@/lib/data';
-import { growthPoints } from '@/lib/score';
+import { connection } from "next/server";
 
-export async function GET() {
-  await connection(); // read the JSON files on every request, not at build time
-  const creators = readJson('creators.json', []);
-  const teams = readJson('teams.json', []);
-  const snapshots = readSnapshots();
+import { readJson, readSnapshots } from "@/lib/data";
+import { growthPoints } from "@/lib/score";
+import {
+  userContext,
+  sharedTeams,
+  apiError,
+  json,
+} from "@/lib/shared-server";
 
-  const rows = creators
-    .map((c) => ({
-      ...c,
-      growth: growthPoints(c.id, snapshots),
-      draftCount: teams.filter((t) => t.picks.includes(c.id)).length,
-    }))
-    .filter((c) => c.draftCount > 0)
-    .sort((a, b) => b.draftCount - a.draftCount || b.momentum - a.momentum)
-    .slice(0, 10);
+export async function GET(request) {
+  await connection();
 
-  return Response.json({ totalScouts: teams.length, creators: rows });
+  try {
+    const { db } = await userContext(request);
+    const teams = await sharedTeams(db);
+
+    const creators = readJson("creators.json", []);
+    const snapshots = readSnapshots();
+
+    const rows = creators
+      .map((creator) => ({
+        ...creator,
+
+        growth: growthPoints(
+          creator.id,
+          snapshots
+        ),
+
+        draftCount: teams.filter((team) =>
+          team.picks.includes(creator.id)
+        ).length,
+      }))
+      .filter((creator) => creator.draftCount > 0)
+      .sort(
+        (a, b) =>
+          b.draftCount - a.draftCount ||
+          b.momentum - a.momentum
+      )
+      .slice(0, 10);
+
+    return json({
+      totalScouts: teams.length,
+      creators: rows,
+    });
+  } catch (error) {
+    return apiError(error);
+  }
 }

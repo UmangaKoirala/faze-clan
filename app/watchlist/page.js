@@ -1,87 +1,254 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { fmt } from '@/lib/format';
+import Link from "next/link";
+import { useEffect, useState } from "react";
+
+import { fmt } from "@/lib/format";
+import { useAuth } from "../components/AuthProvider";
 
 export default function WatchlistPage() {
-  const [data, setData] = useState(null);
-  const [requested, setRequested] = useState({});
+  const { user, ready, api, error: authError } = useAuth();
+  const userId = user?.id;
+
+  const [refresh, setRefresh] = useState(0);
+  const [state, setState] = useState({
+    data: null,
+    error: "",
+    owner: null,
+  });
 
   useEffect(() => {
-    fetch('/api/watchlist').then((r) => r.json()).then(setData);
-  }, []);
+    if (!ready || !userId) return;
+
+    let active = true;
+    let busy = false;
+
+    async function load() {
+      if (busy) return;
+      busy = true;
+
+      try {
+        const data = await api("/api/watchlist");
+
+        if (active) {
+          setState({
+            data,
+            error: "",
+            owner: userId,
+          });
+        }
+      } catch (error) {
+        if (active) {
+          setState((previous) => ({
+            data:
+              previous.owner === userId
+                ? previous.data
+                : null,
+            error: error.message,
+            owner: userId,
+          }));
+        }
+      } finally {
+        busy = false;
+      }
+    }
+
+    load();
+
+    const timer = setInterval(load, 5000);
+
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, [ready, userId, api, refresh]);
+
+  if (!ready) {
+    return (
+      <p className="py-8">
+        Checking your session…
+      </p>
+    );
+  }
+
+  if (!userId) {
+    return (
+      <div className="py-8">
+        <h1 className="font-display text-3xl">
+          Sign in to view the shared Watchlist.
+        </h1>
+
+        {authError && (
+          <p role="alert" className="mt-3">
+            {authError}
+          </p>
+        )}
+
+        <Link href="/login" className="od-button mt-5">
+          Sign in / Create account →
+        </Link>
+      </div>
+    );
+  }
+
+  const data =
+    state.owner === userId ? state.data : null;
+
+  const error =
+    state.owner === userId ? state.error : "";
 
   return (
     <div>
-      <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#E4002B]">For the FaZe talent team</p>
-      <h1 className="font-display mt-2 text-4xl">FaZe Watchlist</h1>
-      <p className="mt-2 max-w-2xl text-white/60">
-        A crowd-scouted talent pipeline, updated live from YouTube. Fan confidence is the share of scouts who
-        drafted each creator.
-        {data ? ` ${data.totalScouts} scouts voted with their picks.` : ''}
+      <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#705629]">
+        Community-powered talent discovery
       </p>
 
-      {!data ? (
-        <p className="mt-8 text-white/50">Loading…</p>
-      ) : data.creators.length === 0 ? (
-        <p className="mt-8 text-white/50">No drafts yet.</p>
-      ) : (
-        <div className="mt-8 overflow-x-auto rounded-lg border border-white/10">
-          <table className="w-full min-w-[820px] text-left text-sm">
-            <thead className="text-xs uppercase text-white/50">
+      <h1 className="font-display mt-2 text-4xl">
+        FaZe Watchlist
+      </h1>
+
+      <p className="mt-3 max-w-2xl text-[#405563]">
+        Creators ranked by how many players drafted them.
+        Fan confidence is the percentage of submitted
+        squads that include each creator.
+      </p>
+
+      <p className="mt-2 text-sm text-[#405563]">
+        {data
+          ? `${data.totalScouts} submitted squads. `
+          : ""}
+        Shared picks refresh every five seconds.
+        YouTube statistics update when the team refreshes
+        the creator dataset.
+      </p>
+
+      <button
+        onClick={() => setRefresh((value) => value + 1)}
+        className="mt-4 text-sm underline"
+      >
+        Refresh now
+      </button>
+
+      {error && (
+        <p role="alert" className="mt-4 text-red-800">
+          {error}
+          {data
+            ? " Showing the last loaded results."
+            : ""}
+        </p>
+      )}
+
+      {!data && !error && (
+        <p role="status" className="mt-8">
+          Loading the shared Watchlist…
+        </p>
+      )}
+
+      {data && data.creators.length === 0 && (
+        <div className="mt-8">
+          <p>No squads have been submitted yet.</p>
+
+          <Link
+            href="/draft"
+            className="mt-3 inline-block underline"
+          >
+            Draft your squad →
+          </Link>
+        </div>
+      )}
+
+      {data && data.creators.length > 0 && (
+        <div className="mt-8 overflow-x-auto rounded-lg border border-[#10364c]/25">
+          <table className="w-full min-w-[800px] text-left text-sm">
+            <thead className="border-b border-[#10364c]/25 text-xs uppercase text-[#405563]">
               <tr>
                 <th className="px-4 py-3">#</th>
                 <th className="py-3">Creator</th>
                 <th className="py-3">Game</th>
                 <th className="py-3">Subs</th>
                 <th className="py-3">Momentum</th>
-                <th className="py-3">Growth</th>
-                <th className="py-3">Fan confidence</th>
-                <th className="py-3 pr-4 text-right">Talent team</th>
+                <th className="py-3">Growth bonus</th>
+                <th className="py-3 pr-4">
+                  Fan confidence
+                </th>
               </tr>
             </thead>
+
             <tbody>
-              {data.creators.map((c, i) => {
-                const confidence = Math.round((c.draftCount / data.totalScouts) * 100);
+              {data.creators.map((creator, index) => {
+                const confidence = data.totalScouts
+                  ? Math.round(
+                      (creator.draftCount /
+                        data.totalScouts) *
+                        100
+                    )
+                  : 0;
+
                 return (
-                  <tr key={c.id} className="border-t border-white/10">
-                    <td className="font-display px-4 py-3 text-xl">{i + 1}</td>
-                    <td className="py-3">
+                  <tr
+                    key={creator.id}
+                    className="border-t border-[#10364c]/20"
+                  >
+                    <td className="font-display px-4 py-4 text-xl">
+                      {index + 1}
+                    </td>
+
+                    <td className="py-4">
                       <a
-                        href={`https://www.youtube.com/${c.handle}`}
+                        href={
+                          "https://www.youtube.com/channel/" +
+                          encodeURIComponent(creator.id)
+                        }
                         target="_blank"
                         rel="noreferrer"
-                        className="font-semibold hover:text-[#E4002B]"
+                        className="font-semibold hover:underline"
                       >
-                        {c.name}
+                        {creator.name}
                       </a>
-                      {c.signedByFaZe && (
-                        <span className="ml-2 rounded bg-yellow-400 px-2 py-0.5 text-xs font-bold text-black">SIGNED</span>
+
+                      {creator.signedByFaZe && (
+                        <span className="ml-2 text-xs">
+                          SIGNED · DEMO
+                        </span>
                       )}
                     </td>
-                    <td className="py-3">{c.game}</td>
-                    <td className="py-3">{fmt(c.subs)}</td>
-                    <td className="py-3">{c.momentum}</td>
-                    <td className="py-3">{c.growth > 0 ? `+${c.growth}` : '–'}</td>
-                    <td className="py-3">
-                      <div className="flex items-center gap-2">
-                        <div className="h-2 w-20 rounded bg-white/10">
-                          <div className="h-2 rounded bg-[#E4002B]" style={{ width: `${confidence}%` }} />
+
+                    <td className="py-4">
+                      {creator.game}
+                    </td>
+
+                    <td className="py-4">
+                      {fmt(creator.subs)}
+                    </td>
+
+                    <td className="py-4">
+                      {creator.momentum}
+                    </td>
+
+                    <td className="py-4">
+                      {creator.growth > 0
+                        ? `+${creator.growth}`
+                        : "—"}
+                    </td>
+
+                    <td className="py-4 pr-4">
+                      <div className="flex items-center gap-3">
+                        <div className="h-2 w-20 overflow-hidden rounded bg-[#10364c]/10">
+                          <div
+                            className="h-full rounded bg-[#a2864b]"
+                            style={{
+                              width: `${confidence}%`,
+                            }}
+                          />
                         </div>
+
                         <span>{confidence}%</span>
+
+                        <span className="text-xs text-[#405563]">
+                          ({creator.draftCount}/
+                          {data.totalScouts})
+                        </span>
                       </div>
-                    </td>
-                    <td className="py-3 pr-4 text-right">
-                      {requested[c.id] ? (
-                        <span className="text-xs text-green-400">Sent to FaZe talent team ✓</span>
-                      ) : (
-                        <button
-                          onClick={() => setRequested({ ...requested, [c.id]: true })}
-                          className="rounded border border-white/30 px-3 py-1 text-xs font-semibold hover:border-[#E4002B] hover:text-[#E4002B]"
-                        >
-                          Request tryout
-                        </button>
-                      )}
                     </td>
                   </tr>
                 );

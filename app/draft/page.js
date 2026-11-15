@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { fmt, readScoutName } from '@/lib/format';
+import { fmt } from '@/lib/format';
+import { useAuth } from '../components/AuthProvider';
 
 const BUDGET = 50;
 const TEAM_SIZE = 5;
@@ -14,6 +15,10 @@ const TIERS = [
 ];
 
 export default function DraftPage() {
+  const { user, ready, api, error: authError } = useAuth();
+  const userId = user?.id;
+  const [loading, setLoading] = useState(true);
+  const [loadedFor, setLoadedFor] = useState(null);
   const [creators, setCreators] = useState([]);
   const [picks, setPicks] = useState([]);
   const [scout, setScout] = useState('');
@@ -25,13 +30,41 @@ export default function DraftPage() {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    fetch('/api/creators')
-      .then((r) => r.json())
-      .then((data) => {
+    if (!ready || !userId) return;
+
+    let active = true;
+
+    Promise.all([
+      api('/api/creators'),
+      api('/api/draft')
+    ])
+      .then(([data, saved]) => {
+        if (!active) return;
+
         setCreators(data);
-        setScout((current) => current || readScoutName());
+        setPicks(saved.team?.picks || []);
+        setScout(saved.scout);
+        setLocked(null);
+        setError('');
+        setLoading(false);
+        setLoadedFor(userId);
+      })
+      .catch((error) => {
+        if (!active) return;
+
+        setCreators([]);
+        setPicks([]);
+        setLocked(null);
+        setScout('');
+        setError(error.message);
+        setLoading(false);
+        setLoadedFor(userId);
       });
-  }, []);
+
+    return () => {
+      active = false;
+    };
+  }, [ready, userId, api]);
 
   const byId = useMemo(() => Object.fromEntries(creators.map((c) => [c.id, c])), [creators]);
   const spent = picks.reduce((sum, id) => sum + (byId[id]?.salary || 0), 0);
@@ -58,25 +91,33 @@ export default function DraftPage() {
   }
 
   async function lockIn() {
+    if (saving) return;
+
     setSaving(true);
     setError('');
-    const res = await fetch('/api/draft', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ scout, picks }),
-    });
-    const json = await res.json();
-    setSaving(false);
-    if (!res.ok) {
-      setError(json.error || 'Could not save your team.');
-      return;
-    }
+
     try {
-      localStorage.setItem('scoutName', scout.trim());
-    } catch {}
-    setCopied(false);
-    setShareText('');
-    setLocked({ scout: scout.trim(), picks: picks.map((id) => byId[id]), cost: spent });
+      const result = await api('/api/draft', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ picks }),
+      });
+
+      setCopied(false);
+      setShareText('');
+
+      setLocked({
+        scout: result.scout,
+        picks: picks.map((id) => byId[id]),
+        cost: spent,
+      });
+    } catch (error) {
+      setError(error.message);
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function share() {
@@ -89,6 +130,53 @@ export default function DraftPage() {
     } catch {
       setCopied(false);
     }
+  }
+
+  if (!ready) {
+    return <p className="py-8">Checking your session…</p>;
+  }
+
+  if (!userId) {
+    return (
+      <div className="py-8">
+        <h1 className="font-display text-3xl">
+          Sign in to draft your squad.
+        </h1>
+
+        {authError && (
+          <p role="alert" className="mt-3">
+            {authError}
+          </p>
+        )}
+
+        <Link href="/login" className="od-button mt-5">
+          Sign in / Create account →
+        </Link>
+      </div>
+    );
+  }
+
+  if (loading || loadedFor !== userId) {
+    return (
+      <p className="py-8" role="status">
+        Loading your saved squad…
+      </p>
+    );
+  }
+
+  if (!creators.length && error) {
+    return (
+      <div className="py-8">
+        <p role="alert">{error}</p>
+
+        <button
+          onClick={() => window.location.reload()}
+          className="mt-3 underline"
+        >
+          Try again
+        </button>
+      </div>
+    );
   }
 
   if (locked) {
@@ -157,7 +245,7 @@ export default function DraftPage() {
         Draft your <span className="text-[#E4002B]">squad</span>
       </h1>
       <p className="mt-2 text-white/60">
-        Pick {TEAM_SIZE} creators with a ${BUDGET} budget. Higher momentum means faster growth.
+        Pick {TEAM_SIZE} creators with a ${BUDGET} budget. Momentum reflects recent activity; measured growth adds bonus points.
       </p>
 
       <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-dashed border-white/25 bg-white/5 px-4 py-3">
@@ -262,12 +350,20 @@ export default function DraftPage() {
               </span>
             ))}
           </div>
-          <input
-            value={scout}
-            onChange={(e) => setScout(e.target.value)}
-            placeholder="Your scout name"
-            className="rounded border border-white/20 bg-transparent px-3 py-2 text-sm"
-          />
+          <span className="text-sm">
+            Signed in as {scout}
+          </span>
+
+          <button
+            onClick={() => {
+              setPicks([]);
+              setError('');
+            }}
+            disabled={saving}
+            className="px-2 py-2 text-sm underline"
+          >
+            Clear picks
+          </button>
           <button
             onClick={lockIn}
             disabled={picks.length !== TEAM_SIZE || !scout.trim() || saving}
