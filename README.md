@@ -1,7 +1,7 @@
 # FaZe Draft
 
 Fantasy sports for gaming creators, built for the HackUTA 2026 FaZe Clan challenge.
-Each week fans draft 4 small YouTube gaming creators with $24 of virtual money, earn
+Each week fans draft 4 small YouTube gaming creators with $50 of virtual money, earn
 points as those creators grow in real life, and become a **Kingmaker** if FaZe signs their pick.
 FaZe gets a **Watchlist** of the creators fans believe in most.
 
@@ -55,7 +55,7 @@ Every scout who drafted them gets a **KINGMAKER** badge, and the Watchlist marks
 
 All the numbers live in `lib/rules.js`.
 
-- **Weekly draft:** a new week starts every Monday at 00:00 UTC. Everyone gets $24 and picks 4 creators.
+- **Weekly draft:** a new week starts every Monday at 00:00 UTC. Everyone gets $50 and picks 4 creators.
 - **Changes:** locking in is free. Each change after that costs $5 from the same week's money, so the more you change, the less you can spend on creators.
 - **Weekly prizes:** when the week ends, the top 3 scouts get +15, +10 and +5 bonus points, plus $6, $4 and $2 extra for next week. Everyone gets their money back for the next draft.
 - **Monthly leaderboard:** streamers are ranked by their points for the month. Scouts who drafted them in any week of that month win: #1 meet the streamer, #2 signed merch, #3 a shoutout on stream, #4–10 a giveaway entry. Scouts are also ranked by their weekly points plus bonuses.

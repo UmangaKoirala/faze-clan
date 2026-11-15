@@ -5,7 +5,7 @@
 was a game? Meet FaZe Draft.”
 
 ## 0:15–0:45 — Draft
-“Every week, build a roster of four rising creators with $24.
+“Every week, build a roster of four rising creators with $50.
 Change your mind mid-week? That costs $5.
 Compare their games, stats, and scouting reports.
 Do you pick established momentum or take a chance on a hidden gem?”
@@ -37,7 +37,7 @@ Next, we would test creator opt-in profiles and Discord leagues.
 FaZe Draft: scout the next gaming star.”
 
 # Before recording
-- Confirm four picks fit within $24.
+- Confirm four picks fit within $50.
 - Verify the submitted team appears.
 - Describe only features that actually work.
 - Keep a backup recording.

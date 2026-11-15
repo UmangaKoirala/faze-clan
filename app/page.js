@@ -171,7 +171,7 @@ export default function HomePage() {
             </div>
 
             <div>
-              <strong>$24</strong>
+              <strong>$50</strong>
               <span>WEEKLY BUDGET</span>
             </div>
 
@@ -209,7 +209,7 @@ export default function HomePage() {
             <h3>Choose your crew</h3>
             <p>
               Discover emerging gaming creators. Draft four
-              with $24 each week. Changes cost $5.
+              with $50 each week. Changes cost $5.
             </p>
           </article>
 
