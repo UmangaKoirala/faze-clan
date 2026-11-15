@@ -146,4 +146,9 @@ fs.writeFileSync(
   JSON.stringify({ takenAt: new Date().toISOString(), stats }, null, 2)
 );
 
-console.log(`\nSaved ${creators.length} creators and a new snapshot.`);
+// Keep only two snapshots: the first one (baseline) and the newest (latest).
+// Growth points compare these two, so the ones in between are not needed.
+const snaps = fs.readdirSync(snapDir).filter((f) => f.endsWith('.json')).sort();
+for (const f of snaps.slice(1, -1)) fs.unlinkSync(path.join(snapDir, f));
+
+console.log(`\nSaved ${creators.length} creators. Snapshots kept: baseline + latest.`);
