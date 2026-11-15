@@ -22,6 +22,12 @@ a {
 }
 
 button,
+input,
+select {
+  font-family: inherit;
+}
+
+button,
 a,
 input,
 select {
@@ -32,6 +38,8 @@ select {
   font-family: Georgia, "Times New Roman", serif;
   letter-spacing: 0.02em;
 }
+
+/* Navigation */
 
 .od-header {
   max-width: 1440px;
@@ -87,20 +95,21 @@ select {
   letter-spacing: 2px;
 }
 
-/* Keep the existing draft, leaderboard and watchlist readable. */
+/* Page layout */
+
 .od-main {
   max-width: 1440px;
+  min-height: 75vh;
   margin: auto;
 }
 
+/* Spacing for the existing draft, leaderboard and watchlist. */
+
 .od-main > :not(.od-home) {
   margin: 25px 5% 60px;
-  padding: 32px;
-  background: var(--ink);
-  color: #fffaf0;
-  border: 1px solid #486576;
-  border-radius: 6px;
 }
+
+/* Restore the home page background. */
 
 .od-home {
   overflow: hidden;
@@ -117,6 +126,8 @@ select {
     );
   background-size: auto, 14px 14px;
 }
+
+/* Home page hero */
 
 .od-hero {
   display: grid;
@@ -152,7 +163,7 @@ select {
 .od-intro {
   max-width: 450px;
   margin: 28px 0;
-  color: #49606b;
+  color: #405563;
   font-size: 15px;
   line-height: 1.9;
 }
@@ -194,6 +205,8 @@ select {
   font-size: 12px;
 }
 
+/* Home page numbers */
+
 .od-facts {
   display: flex;
   gap: 35px;
@@ -220,17 +233,20 @@ select {
 .od-facts span {
   display: block;
   margin-top: 7px;
-  color: #526875;
+  color: #405563;
   font-size: 8px;
   letter-spacing: 1.5px;
 }
 
+/* Ship illustration — restores its size and placement */
+
 .od-art {
+  min-width: 0;
   text-align: center;
 }
 
 .od-art-top {
-  color: #526875;
+  color: #405563;
   font-size: 9px;
   letter-spacing: 3px;
 }
@@ -238,6 +254,7 @@ select {
 .od-ship {
   display: block;
   width: 100%;
+  height: auto;
   max-width: 560px;
   margin: 18px auto 0;
   color: var(--ink);
@@ -252,9 +269,11 @@ select {
 }
 
 .od-art-caption em {
-  color: #68757a;
+  color: #405563;
   font-size: 17px;
 }
+
+/* Home page playbook */
 
 .od-playbook {
   margin: 0 7%;
@@ -309,18 +328,20 @@ select {
 
 .od-step-grid p {
   margin: 0;
-  color: #526875;
+  color: #405563;
   font-size: 13px;
   line-height: 1.9;
 }
 
 .od-disclaimer {
   margin: 25px 7% 0;
-  color: #586b73;
+  color: #405563;
   font-size: 10px;
   line-height: 1.8;
   text-align: center;
 }
+
+/* Ocean decoration */
 
 .od-ocean {
   height: 120px;
@@ -333,17 +354,56 @@ select {
   height: 100%;
 }
 
+/* Footer */
+
 .od-footer {
   display: flex;
   justify-content: space-between;
   gap: 20px;
   padding: 25px 5%;
   background: var(--ink);
-  color: #d8d6c8;
+  color: #e9dfc9;
   font-size: 9px;
   letter-spacing: 1px;
   line-height: 1.8;
 }
+
+/* TEXT COLOR FIX:
+   Replace pale text on the existing light pages with dark slate.
+   These rules do not change card layouts or button styling. */
+
+header :is(
+  [class~="text-white/50"],
+  [class~="text-white/60"],
+  [class~="text-white/70"]
+),
+main :is(
+  [class~="text-white/40"],
+  [class~="text-white/50"],
+  [class~="text-white/60"],
+  [class~="text-white/70"],
+  [class~="text-white/80"]
+) {
+  color: #405563;
+}
+
+/* Preserve light text inside the dark fixed draft bar. */
+
+main [class~="bg-black/95"] {
+  color: #fff7e5;
+}
+
+main [class~="bg-black/95"] :is(
+  [class~="text-white/40"],
+  [class~="text-white/50"],
+  [class~="text-white/60"],
+  [class~="text-white/70"],
+  [class~="text-white/80"]
+) {
+  color: #e9dfc9;
+}
+
+/* Responsive layout */
 
 @media (max-width: 900px) {
   .od-season {
@@ -424,8 +484,10 @@ select {
     flex-direction: column;
     gap: 8px;
   }
+}
 
-  .od-main > :not(.od-home) {
-    padding: 20px;
+@media (prefers-reduced-motion: reduce) {
+  .od-button {
+    transition: none;
   }
 }
