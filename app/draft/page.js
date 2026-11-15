@@ -9,9 +9,9 @@ const BUDGET = 50;
 const TEAM_SIZE = 5;
 
 const TIERS = [
-  { key: 'star', label: '⭐ Star', range: '$12–15', hint: 'Proven channels. Safer, but they eat your budget.', test: (s) => s >= 12 },
+  { key: 'star', label: '⭐ Star', range: '$12–25', hint: 'Proven channels. Safer, but they eat your budget.', test: (s) => s >= 12 },
   { key: 'rising', label: '🔥 Rising', range: '$7–11', hint: 'Growing fast. The core of most squads.', test: (s) => s >= 7 && s < 12 },
-  { key: 'sleeper', label: '💎 Sleeper', range: '$3–6', hint: 'Tiny channels. The next FaZe Rug could be here.', test: (s) => s < 7 },
+  { key: 'sleeper', label: '💎 Sleeper', range: '$6', hint: 'Tiny channels. The next FaZe Rug could be here.', test: (s) => s < 7 },
 ];
 
 export default function DraftPage() {
@@ -252,7 +252,7 @@ export default function DraftPage() {
         <div>
           <div className="text-[11px] uppercase tracking-[0.2em] text-white/50">Season 1 · Open League</div>
           <div className="font-semibold">
-            Presented by <span className="text-[#E4002B]">Your Brand Here</span>
+            Presented by <span className="text-[#E4002B]">UTA</span>
           </div>
         </div>
         <div className="text-xs text-white/50">Sponsored leagues: brand prizes for the top scouts</div>
