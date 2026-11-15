@@ -1,0 +1,12 @@
+@import "tailwindcss";
+
+body {
+  background: #000;
+  color: #fff;
+}
+
+.font-display {
+  font-family: var(--font-anton), Impact, sans-serif;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
