@@ -7,7 +7,7 @@ import { browserSupabase } from "@/lib/supabase-browser";
 import { useAuth } from "./AuthProvider";
 
 export default function AccountMenu() {
-  const { user, ready, error } = useAuth();
+  const { user, ready, error, recovery } = useAuth();
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -50,6 +50,12 @@ export default function AccountMenu() {
         Signed in:{" "}
         {user.user_metadata?.display_name || "Scout"}
       </span>
+
+      {recovery && (
+        <Link href="/login" className="font-semibold underline">
+          Set your new password →
+        </Link>
+      )}
 
       <button
         type="button"

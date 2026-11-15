@@ -3,10 +3,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { fmt } from '@/lib/format';
+import { samePicks } from '@/lib/league';
+import { CHANGE_FEE, TEAM_SIZE, WEEKLY_BONUS_POINTS, WEEKLY_PRIZE_MONEY } from '@/lib/rules';
+import { weekLabel } from '@/lib/weeks';
 import { useAuth } from '../components/AuthProvider';
-
-const BUDGET = 50;
-const TEAM_SIZE = 5;
 
 const TIERS = [
   { key: 'star', label: '⭐ Star', range: '$12–25', hint: 'Proven channels. Safer, but they eat your budget.', test: (s) => s >= 12 },
@@ -21,11 +21,15 @@ export default function DraftPage() {
   const [loadedFor, setLoadedFor] = useState(null);
   const [creators, setCreators] = useState([]);
   const [picks, setPicks] = useState([]);
+  const [saved, setSaved] = useState(null);
+  const [wallet, setWallet] = useState(null);
+  const [week, setWeek] = useState(null);
+  const [editing, setEditing] = useState(false);
   const [scout, setScout] = useState('');
   const [game, setGame] = useState('All');
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const [saving, setSaving] = useState(false);
-  const [locked, setLocked] = useState(null);
   const [shareText, setShareText] = useState('');
   const [copied, setCopied] = useState(false);
 
@@ -38,13 +42,16 @@ export default function DraftPage() {
       api('/api/creators'),
       api('/api/draft')
     ])
-      .then(([data, saved]) => {
+      .then(([data, draft]) => {
         if (!active) return;
 
         setCreators(data);
-        setPicks(saved.team?.picks || []);
-        setScout(saved.scout);
-        setLocked(null);
+        setSaved(draft.team);
+        setPicks(draft.team?.picks || []);
+        setWallet(draft.wallet);
+        setWeek(draft.week);
+        setScout(draft.scout);
+        setEditing(false);
         setError('');
         setLoading(false);
         setLoadedFor(userId);
@@ -54,7 +61,8 @@ export default function DraftPage() {
 
         setCreators([]);
         setPicks([]);
-        setLocked(null);
+        setSaved(null);
+        setWallet(null);
         setScout('');
         setError(error.message);
         setLoading(false);
@@ -73,6 +81,24 @@ export default function DraftPage() {
     .filter((c) => game === 'All' || c.game === game)
     .sort((a, b) => b.momentum - a.momentum);
 
+  // Money this week. Saving over a locked squad costs one more change fee.
+  const total = wallet?.total || 0;
+  const changes = wallet?.changes || 0;
+  const feesAfterSave = (changes + (saved ? 1 : 0)) * CHANGE_FEE;
+  const spendable = total - feesAfterSave;
+  const unchanged = Boolean(saved) && samePicks(saved.picks, picks);
+
+  const cheapestTeam = creators
+    .map((c) => c.salary)
+    .sort((a, b) => a - b)
+    .slice(0, TEAM_SIZE)
+    .reduce((sum, salary) => sum + salary, 0);
+  const canAffordChange =
+    Boolean(saved) && total - (changes + 1) * CHANGE_FEE >= cheapestTeam;
+
+  const savedPicks = (saved?.picks || []).map((id) => byId[id]).filter(Boolean);
+  const savedCost = savedPicks.reduce((sum, c) => sum + c.salary, 0);
+
   function toggle(c) {
     setError('');
     if (picks.includes(c.id)) {
@@ -83,11 +109,24 @@ export default function DraftPage() {
       setError('Your team is full. Remove someone first.');
       return;
     }
-    if (spent + c.salary > BUDGET) {
-      setError(`Not enough budget for ${c.name}. You have $${BUDGET - spent} left.`);
+    if (spent + c.salary > spendable) {
+      setError(`Not enough money for ${c.name}. You have $${Math.max(0, spendable - spent)} left.`);
       return;
     }
     setPicks([...picks, c.id]);
+  }
+
+  function startChange() {
+    setError('');
+    setNotice('');
+    setShareText('');
+    setEditing(true);
+  }
+
+  function cancelChange() {
+    setPicks(saved?.picks || []);
+    setError('');
+    setEditing(false);
   }
 
   async function lockIn() {
@@ -107,12 +146,16 @@ export default function DraftPage() {
 
       setCopied(false);
       setShareText('');
-
-      setLocked({
-        scout: result.scout,
-        picks: picks.map((id) => byId[id]),
-        cost: spent,
-      });
+      setSaved(result.team);
+      setPicks(result.team.picks);
+      setWallet(result.wallet);
+      setScout(result.scout);
+      setEditing(false);
+      setNotice(
+        result.charged
+          ? `Change saved. $${result.charged} was taken from this week's money.`
+          : 'Squad locked in for the week.'
+      );
     } catch (error) {
       setError(error.message);
     } finally {
@@ -121,8 +164,8 @@ export default function DraftPage() {
   }
 
   async function share() {
-    const names = locked.picks.map((c) => c.name).join(', ');
-    const text = `My FaZe Draft squad: ${names} ($${locked.cost}/$${BUDGET}). Think you can scout better? ${window.location.origin}/draft`;
+    const names = savedPicks.map((c) => c.name).join(', ');
+    const text = `My FaZe Draft squad this week: ${names} ($${savedCost}). Think you can scout better? ${window.location.origin}/draft`;
     setShareText(text);
     try {
       await navigator.clipboard.writeText(text);
@@ -179,14 +222,24 @@ export default function DraftPage() {
     );
   }
 
-  if (locked) {
+  const resetsOn = week ? weekLabel(week.end.slice(0, 10)) : 'Monday';
+
+  if (saved && !editing) {
+    const left = total - changes * CHANGE_FEE - savedCost;
+
     return (
       <div className="mx-auto max-w-xl py-8">
-        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#E4002B]">Squad locked 🔒</p>
-        <h1 className="font-display mt-3 text-5xl leading-none">You are in, {locked.scout}.</h1>
-        <p className="mt-3 text-white/60">Your points grow as these creators grow on YouTube.</p>
+        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#E4002B]">
+          Squad locked 🔒 · Week of {weekLabel(week.key)}
+        </p>
+        <h1 className="font-display mt-3 text-5xl leading-none">You are in, {scout}.</h1>
+        <p className="mt-3 text-white/60">
+          Your points grow as these creators grow on YouTube this week. A new draft opens Monday, {resetsOn} (00:00 UTC),
+          and the money in your squad comes back to you.
+        </p>
+        {notice && <p role="status" className="mt-4 text-sm text-white/80">{notice}</p>}
         <ul className="mt-8 divide-y divide-white/10 rounded-lg border border-white/10">
-          {locked.picks.map((c) => (
+          {savedPicks.map((c) => (
             <li key={c.id} className="flex items-center gap-3 px-4 py-3">
               {c.avatar ? (
                 // eslint-disable-next-line @next/next/no-img-element -- YouTube avatars, no image config needed
@@ -206,9 +259,34 @@ export default function DraftPage() {
             </li>
           ))}
         </ul>
-        <p className="mt-3 text-right text-sm text-white/60">
-          Total <span className="font-display text-lg text-white">${locked.cost}</span> of ${BUDGET}
-        </p>
+
+        <dl className="mt-4 space-y-1 text-sm text-white/60">
+          <div className="flex justify-between">
+            <dt>Weekly money</dt>
+            <dd>${wallet.base}</dd>
+          </div>
+          {wallet.prize > 0 && (
+            <div className="flex justify-between">
+              <dt>Prize for finishing #{wallet.lastWeekRank} last week</dt>
+              <dd>+${wallet.prize}</dd>
+            </div>
+          )}
+          {changes > 0 && (
+            <div className="flex justify-between">
+              <dt>Change fees ({changes} × ${CHANGE_FEE})</dt>
+              <dd>−${changes * CHANGE_FEE}</dd>
+            </div>
+          )}
+          <div className="flex justify-between">
+            <dt>Squad cost</dt>
+            <dd>−${savedCost}</dd>
+          </div>
+          <div className="flex justify-between border-t border-white/10 pt-1 text-white">
+            <dt>Left over</dt>
+            <dd className="font-display text-lg">${left}</dd>
+          </div>
+        </dl>
+
         <div className="mt-8 flex flex-wrap gap-3">
           <button onClick={share} className="rounded bg-[#E4002B] px-6 py-3 font-semibold hover:bg-red-700">
             Share your squad
@@ -216,10 +294,19 @@ export default function DraftPage() {
           <Link href="/leaderboard" className="rounded border border-white/30 px-6 py-3 font-semibold hover:border-white">
             See the leaderboard
           </Link>
-          <button onClick={() => setLocked(null)} className="px-2 py-3 text-sm text-white/60 hover:text-white">
-            Edit squad
+          <button
+            onClick={startChange}
+            disabled={!canAffordChange}
+            className="px-2 py-3 text-sm text-white/60 hover:text-white disabled:opacity-40"
+          >
+            Change squad · costs ${CHANGE_FEE}
           </button>
         </div>
+        {!canAffordChange && (
+          <p className="mt-2 text-sm text-white/50">
+            You don&apos;t have enough money left for another change this week. This squad stays until Monday.
+          </p>
+        )}
         {shareText && (
           <div className="mt-4">
             <p className="text-sm text-white/70">
@@ -245,8 +332,27 @@ export default function DraftPage() {
         Draft your <span className="text-[#E4002B]">squad</span>
       </h1>
       <p className="mt-2 text-white/60">
-        Pick {TEAM_SIZE} creators with a ${BUDGET} budget. Momentum reflects recent activity; measured growth adds bonus points.
+        Pick {TEAM_SIZE} creators for the week of {week ? weekLabel(week.key) : 'this week'}. You get ${wallet?.base} every
+        week. Locking in is free; each change after that costs ${CHANGE_FEE}. Momentum reflects recent activity; growth this
+        week adds bonus points.
       </p>
+      <p className="mt-2 text-sm text-white/50">
+        Top 3 scouts each week earn +{WEEKLY_BONUS_POINTS.join(' / +')} bonus points and +$
+        {WEEKLY_PRIZE_MONEY.join(' / +$')} for next week&apos;s draft.
+        {wallet?.prize > 0 && ` You finished #${wallet.lastWeekRank} last week, so you have $${wallet.prize} extra.`}
+      </p>
+
+      {saved && (
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#E4002B]/60 bg-[#E4002B]/10 px-4 py-3">
+          <p className="text-sm">
+            You are changing your locked squad. Saving costs <strong>${CHANGE_FEE}</strong>
+            {changes > 0 ? ` (you have made ${changes} change${changes === 1 ? '' : 's'} this week)` : ''}.
+          </p>
+          <button onClick={cancelChange} disabled={saving} className="text-sm underline">
+            Keep my squad
+          </button>
+        </div>
+      )}
 
       <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-dashed border-white/25 bg-white/5 px-4 py-3">
         <div>
@@ -255,7 +361,7 @@ export default function DraftPage() {
             Presented by <span className="text-[#E4002B]">UTA</span>
           </div>
         </div>
-        <div className="text-xs text-white/50">Sponsored leagues: brand prizes for the top scouts</div>
+        <div className="text-xs text-white/50">Monthly prizes: meet the streamer, merch, shoutouts and giveaways</div>
       </div>
 
       <div className="mt-6 flex flex-wrap gap-2">
@@ -321,7 +427,7 @@ export default function DraftPage() {
                     </div>
                     <p className="mt-3 text-sm text-white/70">{c.scoutReport}</p>
                     <div className="mt-3 text-xs text-white/40">
-                      Drafted by {c.draftCount} scouts{c.growth > 0 ? ` · +${c.growth} growth pts` : ''}
+                      Drafted by {c.draftCount} scouts{c.growth > 0 ? ` · +${c.growth} growth pts this week` : ''}
                     </div>
                     <div className="mt-3 flex items-center justify-between rounded bg-white/5 px-2 py-1.5 text-xs text-white/40">
                       <span>🔒 30-day growth chart</span>
@@ -338,9 +444,9 @@ export default function DraftPage() {
       <div className="fixed inset-x-0 bottom-0 border-t border-white/10 bg-black/95">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-3 px-4 py-4">
           <div className="text-sm">
-            <span className="font-display text-2xl">${BUDGET - spent}</span>{' '}
+            <span className="font-display text-2xl">${Math.max(0, spendable - spent)}</span>{' '}
             <span className="text-white/50">
-              left · {picks.length}/{TEAM_SIZE} picked
+              left{saved ? ` after the $${CHANGE_FEE} fee` : ''} · {picks.length}/{TEAM_SIZE} picked
             </span>
           </div>
           <div className="flex flex-1 flex-wrap gap-2">
@@ -366,12 +472,15 @@ export default function DraftPage() {
           </button>
           <button
             onClick={lockIn}
-            disabled={picks.length !== TEAM_SIZE || !scout.trim() || saving}
+            disabled={picks.length !== TEAM_SIZE || !scout.trim() || saving || unchanged}
             className="rounded bg-[#E4002B] px-5 py-2 font-semibold disabled:opacity-40"
           >
-            {saving ? 'Saving…' : 'Lock in team'}
+            {saving ? 'Saving…' : saved ? `Save change · $${CHANGE_FEE}` : 'Lock in for the week'}
           </button>
           {error && <p className="w-full text-sm text-red-400">{error}</p>}
+          {unchanged && !error && (
+            <p className="w-full text-sm text-white/50">Swap at least one creator to make a change.</p>
+          )}
         </div>
       </div>
     </div>
