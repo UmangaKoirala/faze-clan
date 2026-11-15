@@ -121,9 +121,9 @@ const creators = raw.map((r) => {
         0.3 * percentile(uploadVals, Math.min(r.uploadsLast30d, 30)) +
         0.2 * percentile(engVals, r.engagement))
   );
-  // 1K subs = $3, 10K = $9, 100K+ = $15
+  // 1K subs = $6, 10K = $16, 100K+ = $25
   const logSubs = Math.log10(Math.max(r.subs, 1000));
-  const salary = Math.max(3, Math.min(15, Math.round(3 + ((logSubs - 3) / 2) * 12)));
+  const salary = Math.max(6, Math.min(25, Math.round(6 + ((logSubs - 3) / 2) * 19)));
   const templateReport = `${r.game} · ${r.uploadsLast30d} uploads in 30 days · avg ${fmt(r.recentAvgViews)} views on ${fmt(r.subs)} subs (${Math.round(r.reach * 100)}% reach)`;
   const prev = oldById[r.id] || {};
   return {
