@@ -33,7 +33,25 @@ function percentile(values, v) {
   return values.length > 1 ? (below + (same - 1) / 2) / (values.length - 1) : 1;
 }
 
-const list = JSON.parse(fs.readFileSync(path.join(DATA, 'channel-list.json'), 'utf8'));
+const listFile = path.join(DATA, 'channel-list.json');
+if (!fs.existsSync(listFile)) {
+  console.error('Missing data/channel-list.json. Create it like data/channel-list.example.json:');
+  console.error('[ { "handle": "@SomeCreator", "game": "Fortnite" } ]');
+  process.exit(1);
+}
+let list;
+try {
+  list = JSON.parse(fs.readFileSync(listFile, 'utf8'));
+} catch (err) {
+  console.error(`data/channel-list.json is not valid JSON: ${err.message}`);
+  console.error('Check it at https://jsonlint.com (commas between entries, none after the last one).');
+  process.exit(1);
+}
+if (!Array.isArray(list) || list.length === 0) {
+  console.error('data/channel-list.json is empty. Add at least 5 creators.');
+  process.exit(1);
+}
+console.log(`Fetching ${list.length} creators from YouTube...\n`);
 const oldFile = path.join(DATA, 'creators.json');
 const old = fs.existsSync(oldFile) ? JSON.parse(fs.readFileSync(oldFile, 'utf8')) : [];
 const oldById = Object.fromEntries(old.map((o) => [o.id, o]));

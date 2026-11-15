@@ -5,6 +5,7 @@ import { fmt } from '@/lib/format';
 
 export default function WatchlistPage() {
   const [data, setData] = useState(null);
+  const [requested, setRequested] = useState({});
 
   useEffect(() => {
     fetch('/api/watchlist').then((r) => r.json()).then(setData);
@@ -15,7 +16,8 @@ export default function WatchlistPage() {
       <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#E4002B]">For the FaZe talent team</p>
       <h1 className="font-display mt-2 text-4xl">FaZe Watchlist</h1>
       <p className="mt-2 max-w-2xl text-white/60">
-        The creators our scouts believe in most, ranked by how many teams drafted them.
+        A crowd-scouted talent pipeline, updated live from YouTube. Fan confidence is the share of scouts who
+        drafted each creator.
         {data ? ` ${data.totalScouts} scouts voted with their picks.` : ''}
       </p>
 
@@ -25,7 +27,7 @@ export default function WatchlistPage() {
         <p className="mt-8 text-white/50">No drafts yet.</p>
       ) : (
         <div className="mt-8 overflow-x-auto rounded-lg border border-white/10">
-          <table className="w-full min-w-[640px] text-left text-sm">
+          <table className="w-full min-w-[820px] text-left text-sm">
             <thead className="text-xs uppercase text-white/50">
               <tr>
                 <th className="px-4 py-3">#</th>
@@ -33,34 +35,57 @@ export default function WatchlistPage() {
                 <th className="py-3">Game</th>
                 <th className="py-3">Subs</th>
                 <th className="py-3">Momentum</th>
-                <th className="py-3 pr-4">Drafted by</th>
+                <th className="py-3">Growth</th>
+                <th className="py-3">Fan confidence</th>
+                <th className="py-3 pr-4 text-right">Talent team</th>
               </tr>
             </thead>
             <tbody>
-              {data.creators.map((c, i) => (
-                <tr key={c.id} className="border-t border-white/10">
-                  <td className="font-display px-4 py-3 text-xl">{i + 1}</td>
-                  <td className="py-3">
-                    <a
-                      href={`https://www.youtube.com/${c.handle}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="font-semibold hover:text-[#E4002B]"
-                    >
-                      {c.name}
-                    </a>
-                    {c.signedByFaZe && (
-                      <span className="ml-2 rounded bg-yellow-400 px-2 py-0.5 text-xs font-bold text-black">SIGNED</span>
-                    )}
-                  </td>
-                  <td className="py-3">{c.game}</td>
-                  <td className="py-3">{fmt(c.subs)}</td>
-                  <td className="py-3">{c.momentum}</td>
-                  <td className="py-3 pr-4">
-                    {c.draftCount} ({Math.round((c.draftCount / data.totalScouts) * 100)}%)
-                  </td>
-                </tr>
-              ))}
+              {data.creators.map((c, i) => {
+                const confidence = Math.round((c.draftCount / data.totalScouts) * 100);
+                return (
+                  <tr key={c.id} className="border-t border-white/10">
+                    <td className="font-display px-4 py-3 text-xl">{i + 1}</td>
+                    <td className="py-3">
+                      <a
+                        href={`https://www.youtube.com/${c.handle}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-semibold hover:text-[#E4002B]"
+                      >
+                        {c.name}
+                      </a>
+                      {c.signedByFaZe && (
+                        <span className="ml-2 rounded bg-yellow-400 px-2 py-0.5 text-xs font-bold text-black">SIGNED</span>
+                      )}
+                    </td>
+                    <td className="py-3">{c.game}</td>
+                    <td className="py-3">{fmt(c.subs)}</td>
+                    <td className="py-3">{c.momentum}</td>
+                    <td className="py-3">{c.growth > 0 ? `+${c.growth}` : '–'}</td>
+                    <td className="py-3">
+                      <div className="flex items-center gap-2">
+                        <div className="h-2 w-20 rounded bg-white/10">
+                          <div className="h-2 rounded bg-[#E4002B]" style={{ width: `${confidence}%` }} />
+                        </div>
+                        <span>{confidence}%</span>
+                      </div>
+                    </td>
+                    <td className="py-3 pr-4 text-right">
+                      {requested[c.id] ? (
+                        <span className="text-xs text-green-400">Sent to FaZe talent team ✓</span>
+                      ) : (
+                        <button
+                          onClick={() => setRequested({ ...requested, [c.id]: true })}
+                          className="rounded border border-white/30 px-3 py-1 text-xs font-semibold hover:border-[#E4002B] hover:text-[#E4002B]"
+                        >
+                          Request tryout
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
