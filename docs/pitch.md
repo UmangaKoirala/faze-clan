@@ -6,8 +6,11 @@ Promising gaming creators are hard to discover.
 Fans who spot talent early have no way to track their scouting success.
 
 ## Our solution
-Draft five rising creators with a $50 fantasy budget.
+Draft four rising creators each week with $24 of virtual money.
+Changing your squad mid-week costs $5.
 Earn points from their measured YouTube growth.
+The top 3 scouts each week get bonus points and extra money for next week.
+Backers of the month's top streamers win a meet and greet, merch, shoutouts and giveaways.
 See community favorites on a talent watchlist.
 
 ## Who benefits

@@ -1,27 +1,70 @@
 import { connection } from "next/server";
 
-import { readJson } from "@/lib/data";
+import { readJson, readSnapshots } from "@/lib/data";
 import { validateDraft } from "@/lib/validate-draft";
+import { rankWeek, samePicks, walletFor } from "@/lib/league";
+import { CHANGE_FEE } from "@/lib/rules";
+import { addWeeks, weekKey, weekRange } from "@/lib/weeks";
 import {
   userContext,
+  weeklyDrafts,
   apiError,
   ApiError,
   json,
 } from "@/lib/shared-server";
 
-// Load the signed-in player's saved squad.
+async function loadWeek(db, user) {
+  const week = weekKey();
+  const lastWeek = addWeeks(week, -1);
+
+  const [draft, lastWeekDrafts] = await Promise.all([
+    db
+      .from("weekly_drafts")
+      .select("picks,changes,updated_at")
+      .eq("user_id", user.id)
+      .eq("week", week)
+      .maybeSingle(),
+
+    weeklyDrafts(db, [lastWeek]),
+  ]);
+
+  if (draft.error) {
+    throw new ApiError(
+      "Could not load your squad for this week. Run supabase/weekly-league.sql in the Supabase SQL editor, then check the table policies.",
+      503
+    );
+  }
+
+  const creators = readJson("creators.json", []);
+  const byId = Object.fromEntries(
+    creators.map((creator) => [creator.id, creator])
+  );
+
+  // Last week's finish decides this week's prize money.
+  const lastWeekRows = rankWeek(
+    lastWeekDrafts,
+    byId,
+    readSnapshots(),
+    lastWeek
+  );
+
+  return {
+    week,
+    creators,
+    team: draft.data,
+    wallet: walletFor(user.id, lastWeekRows, draft.data?.changes || 0),
+  };
+}
+
+// Load the signed-in player's squad and money for this week.
 export async function GET(request) {
   await connection();
 
   try {
     const { db, user } = await userContext(request);
 
-    const [team, profile] = await Promise.all([
-      db
-        .from("teams")
-        .select("picks")
-        .eq("user_id", user.id)
-        .maybeSingle(),
+    const [{ week, team, wallet }, profile] = await Promise.all([
+      loadWeek(db, user),
 
       db
         .from("profiles")
@@ -30,15 +73,17 @@ export async function GET(request) {
         .maybeSingle(),
     ]);
 
-    if (team.error || profile.error) {
+    if (profile.error) {
       throw new ApiError(
-        "Could not load your saved squad. Check the Supabase tables and policies.",
+        "Could not load your profile. Check the Supabase tables and policies.",
         503
       );
     }
 
     return json({
-      team: team.data,
+      week: weekRange(week),
+      team,
+      wallet,
       scout:
         profile.data?.display_name ||
         user.user_metadata?.display_name ||
@@ -49,26 +94,36 @@ export async function GET(request) {
   }
 }
 
-// Save only the authenticated player's squad.
+// Lock in this week's squad. The first save each week is free;
+// every change after that costs CHANGE_FEE from this week's money.
 export async function POST(request) {
   try {
     const { db, user } = await userContext(request);
 
     const body = await request.json().catch(() => null);
 
-    const validationError = validateDraft(
-      body,
-      readJson("creators.json", [])
-    );
-
-    if (validationError) {
-      throw new ApiError(validationError, 400);
-    }
+    const { week, creators, team, wallet } = await loadWeek(db, user);
 
     const scout =
       String(user.user_metadata?.display_name || "Scout")
         .trim()
         .slice(0, 24) || "Scout";
+
+    if (team && samePicks(team.picks, body?.picks)) {
+      return json({ ok: true, scout, charged: 0, team, wallet });
+    }
+
+    const changes = team ? team.changes + 1 : 0;
+
+    const validationError = validateDraft(
+      body,
+      creators,
+      wallet.total - changes * CHANGE_FEE
+    );
+
+    if (validationError) {
+      throw new ApiError(validationError, 400);
+    }
 
     const profile = await db
       .from("profiles")
@@ -89,22 +144,33 @@ export async function POST(request) {
       );
     }
 
-    const saved = await db
-      .from("teams")
-      .upsert(
-        {
-          user_id: user.id,
-          picks: body.picks,
-        },
-        {
-          onConflict: "user_id",
-        }
-      );
+    // The database trigger counts changes itself,
+    // so the browser cannot skip the fee by writing to Supabase directly.
+    const saved = team
+      ? await db
+          .from("weekly_drafts")
+          .update({ picks: body.picks })
+          .eq("user_id", user.id)
+          .eq("week", week)
+          .select("picks,changes,updated_at")
+          .single()
+      : await db
+          .from("weekly_drafts")
+          .insert({ user_id: user.id, week, picks: body.picks })
+          .select("picks,changes,updated_at")
+          .single();
 
     if (saved.error) {
+      if (saved.error.code === "23505") {
+        throw new ApiError(
+          "You already locked in a squad this week. Refresh to see it.",
+          409
+        );
+      }
+
       if (saved.error.code === "23514") {
         throw new ApiError(
-          "The database rejected this squad. Check the budget and whether the creator catalog matches the website.",
+          "The database rejected this squad. Check the team size and whether the creator catalog matches the website.",
           400
         );
       }
@@ -118,6 +184,13 @@ export async function POST(request) {
     return json({
       ok: true,
       scout,
+      charged: team ? CHANGE_FEE : 0,
+      team: saved.data,
+      wallet: {
+        ...wallet,
+        changes: saved.data.changes,
+        fees: saved.data.changes * CHANGE_FEE,
+      },
     });
   } catch (error) {
     return apiError(error);

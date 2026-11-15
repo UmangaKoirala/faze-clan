@@ -5,17 +5,20 @@
 was a game? Meet FaZe Draft.”
 
 ## 0:15–0:45 — Draft
-“Build a roster of five rising creators with a $50 fantasy budget.
+“Every week, build a roster of four rising creators with $24.
+Change your mind mid-week? That costs $5.
 Compare their games, stats, and scouting reports.
 Do you pick established momentum or take a chance on a hidden gem?”
 
-Pick five creators and submit the team.
+Pick four creators and lock in the team.
 
 ## 0:45–1:05 — Leaderboard
 “Teams compete using creator momentum and measured growth
 between YouTube snapshots.”
 
-Show the submitted team. Identify sample teams as demo data.
+Show this week's standings and last week's top 3 bonuses.
+Open the This month tab: top streamers and the rewards their backers win.
+Identify sample teams as demo data.
 
 ## 1:05–1:30 — Watchlist
 “The Watchlist shows which creators our scouts draft most.
@@ -34,7 +37,7 @@ Next, we would test creator opt-in profiles and Discord leagues.
 FaZe Draft: scout the next gaming star.”
 
 # Before recording
-- Confirm five picks fit within $50.
+- Confirm four picks fit within $24.
 - Verify the submitted team appears.
 - Describe only features that actually work.
 - Keep a backup recording.
