@@ -149,7 +149,7 @@ export default function HomePage() {
 
           <p className="od-intro">
             The next great creator is still undiscovered.
-            Assemble your crew of five rising talents,
+            Assemble a crew of four rising talents each week,
             follow their journey, and prove you saw
             greatness before the world did.
           </p>
@@ -166,13 +166,13 @@ export default function HomePage() {
 
           <div className="od-facts">
             <div>
-              <strong>05</strong>
+              <strong>04</strong>
               <span>CREATORS</span>
             </div>
 
             <div>
-              <strong>$50</strong>
-              <span>VIRTUAL BUDGET</span>
+              <strong>$24</strong>
+              <span>WEEKLY BUDGET</span>
             </div>
 
             <div>
@@ -208,8 +208,8 @@ export default function HomePage() {
             <span className="od-number">I</span>
             <h3>Choose your crew</h3>
             <p>
-              Discover emerging gaming creators. Draft five
-              within your $50 virtual budget.
+              Discover emerging gaming creators. Draft four
+              with $24 each week. Changes cost $5.
             </p>
           </article>
 
@@ -226,8 +226,9 @@ export default function HomePage() {
             <span className="od-number">III</span>
             <h3>Build your legacy</h3>
             <p>
-              Climb the scout leaderboard and help surface
-              the creators fans believe in most.
+              Top 3 scouts each week earn bonus points. Back
+              the month’s top streamers to win a meet and
+              greet, merch or a shoutout.
             </p>
           </article>
         </div>

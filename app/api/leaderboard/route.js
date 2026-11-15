@@ -1,21 +1,26 @@
 import { connection } from "next/server";
 
 import { readJson, readSnapshots } from "@/lib/data";
-import { teamPoints } from "@/lib/score";
+import { rankWeek } from "@/lib/league";
+import { addWeeks, weekKey, weekRange } from "@/lib/weeks";
 import {
   userContext,
-  sharedTeams,
+  weeklyDrafts,
   apiError,
   json,
 } from "@/lib/shared-server";
 
+// This week's live standings and last week's final results.
 export async function GET(request) {
   await connection();
 
   try {
     const { db, user } = await userContext(request);
 
-    const teams = await sharedTeams(db);
+    const week = weekKey();
+    const lastWeek = addWeeks(week, -1);
+
+    const drafts = await weeklyDrafts(db, [week, lastWeek]);
     const creators = readJson("creators.json", []);
     const snapshots = readSnapshots();
 
@@ -23,37 +28,31 @@ export async function GET(request) {
       creators.map((creator) => [creator.id, creator])
     );
 
-    const rows = teams
-      .map((team) => ({
-        id: team.user_id,
+    function board(key) {
+      return {
+        ...weekRange(key),
+        rows: rankWeek(drafts, byId, snapshots, key).map((row) => ({
+          id: row.userId,
+          scout: row.scout,
+          mine: row.userId === user.id,
+          rank: row.rank,
+          points: row.points,
+          finished: row.finished,
+          bonusPoints: row.bonusPoints,
+          prizeMoney: row.prizeMoney,
+          changes: row.changes,
+          picks: row.picks.map(
+            (id) => byId[id]?.name || "Creator no longer listed"
+          ),
+          kingmaker: row.picks.some((id) => byId[id]?.signedByFaZe),
+        })),
+      };
+    }
 
-        scout:
-          team.profiles?.display_name || "Scout",
-
-        mine: team.user_id === user.id,
-
-        points: teamPoints(team, byId, snapshots),
-
-        picks: team.picks.map(
-          (id) =>
-            byId[id]?.name || "Creator no longer listed"
-        ),
-
-        kingmaker: team.picks.some(
-          (id) => byId[id]?.signedByFaZe
-        ),
-      }))
-      .sort(
-        (a, b) =>
-          b.points - a.points ||
-          a.id.localeCompare(b.id)
-      )
-      .map((row, index) => ({
-        ...row,
-        rank: index + 1,
-      }));
-
-    return json(rows);
+    return json({
+      current: board(week),
+      last: board(lastWeek),
+    });
   } catch (error) {
     return apiError(error);
   }

@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from "react";
 
@@ -12,24 +13,45 @@ import { browserSupabase } from "@/lib/supabase-browser";
 
 const AuthContext = createContext(null);
 
+// Reads the #... part of an email link before Supabase clears it.
+function linkFromEmail() {
+  const params = new URLSearchParams(window.location.hash.slice(1));
+
+  return {
+    recovery: params.get("type") === "recovery",
+    error: params.get("error_description") || "",
+  };
+}
+
 export function AuthProvider({ children }) {
   const [state, setState] = useState({
     user: null,
     ready: false,
     error: "",
+    recovery: false,
   });
+
+  // True while the user arrived from a password reset link
+  // and has not set a new password yet.
+  const recoveryRef = useRef(false);
 
   useEffect(() => {
     let active = true;
     let subscription;
 
+    const link = linkFromEmail();
+    if (link.recovery) recoveryRef.current = true;
+
     function update(session, error = "") {
       if (!active) return;
+
+      if (!session) recoveryRef.current = false;
 
       setState({
         user: session?.user || null,
         ready: true,
         error,
+        recovery: recoveryRef.current,
       });
     }
 
@@ -37,7 +59,11 @@ export function AuthProvider({ children }) {
       const client = browserSupabase();
 
       subscription = client.auth.onAuthStateChange(
-        (_event, session) => {
+        (event, session) => {
+          if (event === "PASSWORD_RECOVERY") {
+            recoveryRef.current = true;
+          }
+
           update(session);
         }
       ).data.subscription;
@@ -45,7 +71,13 @@ export function AuthProvider({ children }) {
       client.auth
         .getSession()
         .then(({ data, error }) => {
-          update(data.session, error?.message || "");
+          update(
+            data.session,
+            error?.message ||
+              (link.error
+                ? `That email link did not work: ${link.error}. Request a new one.`
+                : "")
+          );
         })
         .catch((error) => {
           update(null, error.message);
@@ -92,8 +124,13 @@ export function AuthProvider({ children }) {
     return body;
   }, []);
 
+  const endRecovery = useCallback(() => {
+    recoveryRef.current = false;
+    setState((previous) => ({ ...previous, recovery: false }));
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ ...state, api }}>
+    <AuthContext.Provider value={{ ...state, api, endRecovery }}>
       {children}
     </AuthContext.Provider>
   );

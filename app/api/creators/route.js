@@ -2,6 +2,8 @@ import { connection } from "next/server";
 
 import { readJson, readSnapshots } from "@/lib/data";
 import { growthPoints } from "@/lib/score";
+import { snapshotsBetween } from "@/lib/league";
+import { weekKey, weekRange } from "@/lib/weeks";
 import {
   userContext,
   sharedTeams,
@@ -20,7 +22,13 @@ export async function GET(request) {
       : null;
 
     const creators = readJson("creators.json", []);
-    const snapshots = readSnapshots();
+    // Growth shown on the draft page is this week's growth, like the scoring.
+    const week = weekRange(weekKey());
+    const snapshots = snapshotsBetween(
+      readSnapshots(),
+      week.start,
+      week.end
+    );
 
     const rows = creators.map((creator) => {
       const growth = growthPoints(
