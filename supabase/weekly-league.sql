@@ -8,7 +8,7 @@
 create table if not exists public.weekly_drafts (
   user_id uuid not null references public.profiles (id) on delete cascade,
   week date not null check (extract(isodow from week) = 1),
-  picks text[] not null check (cardinality(picks) = 4),
+  picks text[] not null check (cardinality(picks) = 5),
   changes integer not null default 0 check (changes >= 0),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
