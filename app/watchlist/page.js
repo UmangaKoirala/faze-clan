@@ -1,0 +1,70 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { fmt } from '@/lib/format';
+
+export default function WatchlistPage() {
+  const [data, setData] = useState(null);
+
+  useEffect(() => {
+    fetch('/api/watchlist').then((r) => r.json()).then(setData);
+  }, []);
+
+  return (
+    <div>
+      <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#E4002B]">For the FaZe talent team</p>
+      <h1 className="font-display mt-2 text-4xl">FaZe Watchlist</h1>
+      <p className="mt-2 max-w-2xl text-white/60">
+        The creators our scouts believe in most, ranked by how many teams drafted them.
+        {data ? ` ${data.totalScouts} scouts voted with their picks.` : ''}
+      </p>
+
+      {!data ? (
+        <p className="mt-8 text-white/50">Loading…</p>
+      ) : data.creators.length === 0 ? (
+        <p className="mt-8 text-white/50">No drafts yet.</p>
+      ) : (
+        <div className="mt-8 overflow-x-auto rounded-lg border border-white/10">
+          <table className="w-full min-w-[640px] text-left text-sm">
+            <thead className="text-xs uppercase text-white/50">
+              <tr>
+                <th className="px-4 py-3">#</th>
+                <th className="py-3">Creator</th>
+                <th className="py-3">Game</th>
+                <th className="py-3">Subs</th>
+                <th className="py-3">Momentum</th>
+                <th className="py-3 pr-4">Drafted by</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.creators.map((c, i) => (
+                <tr key={c.id} className="border-t border-white/10">
+                  <td className="font-display px-4 py-3 text-xl">{i + 1}</td>
+                  <td className="py-3">
+                    <a
+                      href={`https://www.youtube.com/${c.handle}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-semibold hover:text-[#E4002B]"
+                    >
+                      {c.name}
+                    </a>
+                    {c.signedByFaZe && (
+                      <span className="ml-2 rounded bg-yellow-400 px-2 py-0.5 text-xs font-bold text-black">SIGNED</span>
+                    )}
+                  </td>
+                  <td className="py-3">{c.game}</td>
+                  <td className="py-3">{fmt(c.subs)}</td>
+                  <td className="py-3">{c.momentum}</td>
+                  <td className="py-3 pr-4">
+                    {c.draftCount} ({Math.round((c.draftCount / data.totalScouts) * 100)}%)
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
