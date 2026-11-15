@@ -32,10 +32,13 @@ Recent video titles: ${JSON.stringify(c.recentTitles || [])}`;
 
   try {
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+  'Content-Type': 'application/json',
+  'x-goog-api-key': KEY,
+},
         body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
       }
     );
